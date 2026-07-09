@@ -847,8 +847,19 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
     function renderQuizEditor(inner, questions) {
       inner.innerHTML = `
         <div style="display:flex; flex-direction:column; gap:16px;">
+          
+          <!-- Sticky Header bar for saving bulk -->
+          <div class="editor-card" style="padding:14px 20px; display:flex; justify-content:space-between; align-items:center; background:rgba(16,185,129,0.05); border:1.5px solid rgba(16,185,129,0.15);">
+            <div style="font-size:13px; font-weight:700; color:var(--text-primary);">
+              Quản lý danh sách câu hỏi Quiz
+            </div>
+            <button class="btn btn-primary" onclick="saveAllQuizQuestions()" style="font-weight:800; font-size:13px; padding:10px 20px; box-shadow:0 4px 12px rgba(16,185,129,0.25);">
+              <i data-lucide="save" style="width:15px;height:15px;vertical-align:middle;margin-right:4px;"></i> LƯU TẤT CẢ CÂU HỎI
+            </button>
+          </div>
+
           ${questions.map((q, qi) => `
-            <div class="editor-card" id="qcard-${qi}">
+            <div class="editor-card" id="qcard-${qi}" data-id="${q.id}">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
                 <span style="font-size:12px; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.08em;">
                   Câu ${qi + 1}
@@ -856,9 +867,6 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
                 <div style="display:flex; gap:8px;">
                   <button class="btn btn-sm btn-danger" onclick="deleteQuizQuestion(${qi})" style="background:rgba(239,68,68,0.1); color:var(--danger); border:1px solid rgba(239,68,68,0.2);">
                     <i data-lucide="trash-2" style="width:13px;height:13px;"></i> Xóa
-                  </button>
-                  <button class="btn btn-sm btn-primary" onclick="saveQuizQuestion(${qi})">
-                    <i data-lucide="save" style="width:13px;height:13px;"></i> Lưu
                   </button>
                 </div>
               </div>
@@ -873,11 +881,14 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
             </div>
           `).join('')}
 
-          <div style="display:flex; gap:12px; margin-top:16px;">
-            <button class="btn btn-primary" onclick="addQuizQuestion()" style="align-self:flex-start;">
+          <div style="display:flex; gap:12px; margin-top:16px; align-items:center;">
+            <button class="btn btn-primary" onclick="saveAllQuizQuestions()" style="font-weight:800;">
+              <i data-lucide="save" style="width:14px;height:14px;"></i> Lưu tất cả câu hỏi
+            </button>
+            <button class="btn btn-outline" onclick="addQuizQuestion()">
               <i data-lucide="plus" style="width:14px;height:14px;"></i> Thêm câu hỏi mới
             </button>
-            <button class="btn btn-secondary" onclick="resetQuizToDefault()" style="align-self:flex-start;">
+            <button class="btn btn-secondary" onclick="resetQuizToDefault()">
               <i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i> Đặt lại câu hỏi mặc định
             </button>
           </div>
@@ -885,45 +896,62 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
       `;
       if (window.lucide) window.lucide.createIcons();
 
-      window.saveQuizQuestion = function(qi) {
-        const cur = window.getQuizQuestions();
-        cur[qi] = {
-          ...cur[qi],
-          question: inner.querySelector(`#q-q-${qi}`).value.trim(),
-          answer: inner.querySelector(`#q-ans-${qi}`).value.trim()
-        };
-        localStorage.setItem('ctg_custom_quiz', JSON.stringify(cur));
-        window.quizQuestions = cur;
+      function collectQuizQuestionsFromDOM() {
+        const cards = inner.querySelectorAll('.editor-card[id^="qcard-"]');
+        const list = [];
+        cards.forEach((card) => {
+          const qi = card.id.split('-')[1];
+          const qEl = inner.querySelector(`#q-q-${qi}`);
+          const ansEl = inner.querySelector(`#q-ans-${qi}`);
+          if (qEl && ansEl) {
+            const originalId = card.dataset.id;
+            list.push({
+              id: originalId ? parseInt(originalId, 10) : Date.now() + parseInt(qi, 10),
+              question: qEl.value.trim(),
+              answer: ansEl.value.trim()
+            });
+          }
+        });
+        return list;
+      }
+
+      window.saveAllQuizQuestions = function() {
+        const list = collectQuizQuestionsFromDOM();
+        localStorage.setItem('ctg_custom_quiz', JSON.stringify(list));
+        window.quizQuestions = list;
         window.setGameState({ quizQuestionsVersion: Date.now() });
-        showSaveToast('✅ Đã lưu câu hỏi Quiz thành công!');
+        showSaveToast('✅ Đã lưu tất cả câu hỏi Quiz thành công!');
+        renderContentSections();
       };
 
       window.addQuizQuestion = function() {
-        const cur = window.getQuizQuestions();
-        cur.push({
+        const list = collectQuizQuestionsFromDOM();
+        list.push({
           id: Date.now(),
           question: "Giá trị cốt lõi thứ 6 của chúng ta là __________.",
           answer: "Tốc độ"
         });
-        localStorage.setItem('ctg_custom_quiz', JSON.stringify(cur));
-        window.quizQuestions = cur;
+        localStorage.setItem('ctg_custom_quiz', JSON.stringify(list));
+        window.quizQuestions = list;
         window.setGameState({ quizQuestionsVersion: Date.now() });
         renderContentSections();
+        showSaveToast('➕ Đã thêm câu hỏi mới vào danh sách!');
       };
 
       window.deleteQuizQuestion = function(qi) {
         if (confirm('Bạn có chắc muốn xóa câu hỏi này?')) {
-          const cur = window.getQuizQuestions();
-          cur.splice(qi, 1);
-          localStorage.setItem('ctg_custom_quiz', JSON.stringify(cur));
-          window.quizQuestions = cur;
+          const list = collectQuizQuestionsFromDOM();
+          list.splice(qi, 1);
+          localStorage.setItem('ctg_custom_quiz', JSON.stringify(list));
+          window.quizQuestions = list;
           window.setGameState({ quizQuestionsVersion: Date.now() });
           renderContentSections();
+          showSaveToast('🗑️ Đã xóa câu hỏi khỏi danh sách tạm!');
         }
       };
 
       window.resetQuizToDefault = function() {
-        if (confirm('Đặt lại về câu hỏi mặc định?')) {
+        if (confirm('Đặt lại về câu hỏi mặc định? Tất cả chỉnh sửa chưa lưu sẽ bị mất.')) {
           localStorage.removeItem('ctg_custom_quiz');
           window.quizQuestions = window.getQuizQuestions();
           window.setGameState({ quizQuestionsVersion: Date.now() });
@@ -945,16 +973,19 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
             Pool đủ <strong>${poolCount} câu</strong> ✔ Round 1 dùng câu 1–5, Round 2 dùng câu 6–10.
            </div>`;
 
-      // Build per-round section headers
-      function roundLabel(i) {
-        if (i === 0) return `<div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:#f59e0b; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:6px; padding:3px 8px; margin-right:8px;">Round 1</div>`;
-        if (i === 5) return `<div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:#8b5cf6; background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.3); border-radius:6px; padding:3px 8px; margin-right:8px;">Round 2</div>`;
-        return '';
-      }
-
       inner.innerHTML = `
         <div style="display:flex; flex-direction:column; gap:16px;">
           ${warningHtml}
+
+          <!-- Sticky Header bar for saving bulk -->
+          <div class="editor-card" style="padding:14px 20px; display:flex; justify-content:space-between; align-items:center; background:rgba(16,185,129,0.05); border:1.5px solid rgba(16,185,129,0.15);">
+            <div style="font-size:13px; font-weight:700; color:var(--text-primary);">
+              Quản lý danh sách câu hỏi Kéo co
+            </div>
+            <button class="btn btn-primary" onclick="saveAllTugStatements()" style="font-weight:800; font-size:13px; padding:10px 20px; box-shadow:0 4px 12px rgba(16,185,129,0.25);">
+              <i data-lucide="save" style="width:15px;height:15px;vertical-align:middle;margin-right:4px;"></i> LƯU TẤT CẢ CÂU KÉO CO
+            </button>
+          </div>
 
           <!-- Round 1 header -->
           <div style="display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:2px solid rgba(245,158,11,0.3);">
@@ -963,8 +994,7 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
           </div>
 
           ${stmts.slice(0, 5).map((s, i) => `
-            ${i === 0 ? '' : ''}
-            <div class="editor-card" id="tcard-${i}">
+            <div class="editor-card" id="tcard-${i}" data-id="${s.id}">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
                 <div style="display:flex; align-items:center;">
                   <span style="font-size:12px; font-weight:700; color:#f59e0b; text-transform:uppercase; letter-spacing:0.08em;">
@@ -974,9 +1004,6 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
                 <div style="display:flex; gap:8px;">
                   <button class="btn btn-sm btn-danger" onclick="deleteTugStatement(${i})" style="background:rgba(239,68,68,0.1); color:var(--danger); border:1px solid rgba(239,68,68,0.2);">
                     <i data-lucide="trash-2" style="width:13px;height:13px;"></i> Xóa
-                  </button>
-                  <button class="btn btn-sm btn-primary" onclick="saveTugStatement(${i})">
-                    <i data-lucide="save" style="width:13px;height:13px;"></i> Lưu
                   </button>
                 </div>
               </div>
@@ -1006,7 +1033,7 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
           </div>
 
           ${stmts.slice(5).map((s, j) => { const i = j + 5; return `
-            <div class="editor-card" id="tcard-${i}">
+            <div class="editor-card" id="tcard-${i}" data-id="${s.id}">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
                 <div style="display:flex; align-items:center;">
                   <span style="font-size:12px; font-weight:700; color:#8b5cf6; text-transform:uppercase; letter-spacing:0.08em;">
@@ -1016,9 +1043,6 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
                 <div style="display:flex; gap:8px;">
                   <button class="btn btn-sm btn-danger" onclick="deleteTugStatement(${i})" style="background:rgba(239,68,68,0.1); color:var(--danger); border:1px solid rgba(239,68,68,0.2);">
                     <i data-lucide="trash-2" style="width:13px;height:13px;"></i> Xóa
-                  </button>
-                  <button class="btn btn-sm btn-primary" onclick="saveTugStatement(${i})">
-                    <i data-lucide="save" style="width:13px;height:13px;"></i> Lưu
                   </button>
                 </div>
               </div>
@@ -1041,11 +1065,14 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
             </div>
           `; }).join('')}
 
-          <div style="display:flex; gap:12px; margin-top:16px;">
-            <button class="btn btn-primary" onclick="addTugStatement()" style="align-self:flex-start;">
+          <div style="display:flex; gap:12px; margin-top:16px; align-items:center;">
+            <button class="btn btn-primary" onclick="saveAllTugStatements()" style="font-weight:800;">
+              <i data-lucide="save" style="width:14px;height:14px;"></i> Lưu tất cả câu kéo co
+            </button>
+            <button class="btn btn-outline" onclick="addTugStatement()">
               <i data-lucide="plus" style="width:14px;height:14px;"></i> Thêm câu kéo co
             </button>
-            <button class="btn btn-secondary" onclick="resetTugToDefault()" style="align-self:flex-start;">
+            <button class="btn btn-secondary" onclick="resetTugToDefault()">
               <i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i> Đặt lại mặc định
             </button>
           </div>
@@ -1064,46 +1091,72 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
         });
       });
 
-      window.saveTugStatement = function(i) {
-        const cur = window.getTugStatements();
-        const checkedRadio = inner.querySelector(`[name="tans-${i}"]:checked`);
-        cur[i] = {
-          ...cur[i],
-          question: inner.querySelector(`#tug-q-${i}`).value.trim(),
-          options: [0,1,2,3].map(oi => inner.querySelector(`#tug-o-${i}-${oi}`).value.trim()),
-          answer: checkedRadio ? parseInt(checkedRadio.value, 10) : cur[i].answer,
-        };
-        localStorage.setItem('ctg_custom_tug', JSON.stringify(cur));
-        showSaveToast('✅ Đã lưu câu Kéo Co!');
+      function collectTugStatementsFromDOM() {
+        const cards = inner.querySelectorAll('.editor-card[id^="tcard-"]');
+        const list = [];
+        cards.forEach((card) => {
+          const i = card.id.split('-')[1];
+          const qEl = inner.querySelector(`#tug-q-${i}`);
+          if (qEl) {
+            const checkedRadio = inner.querySelector(`[name="tans-${i}"]:checked`);
+            const options = [0,1,2,3].map(oi => {
+              const optEl = inner.querySelector(`#tug-o-${i}-${oi}`);
+              return optEl ? optEl.value.trim() : '';
+            });
+            const answerVal = checkedRadio ? parseInt(checkedRadio.value, 10) : 0;
+            const originalId = card.dataset.id;
+            list.push({
+              id: originalId ? parseInt(originalId, 10) : Date.now() + parseInt(i, 10),
+              question: qEl.value.trim(),
+              options: options,
+              answer: answerVal
+            });
+          }
+        });
+        return list;
+      }
+
+      window.saveAllTugStatements = function() {
+        const list = collectTugStatementsFromDOM();
+        localStorage.setItem('ctg_custom_tug', JSON.stringify(list));
+        window.tugStatements = list;
+        window.setGameState({ tugQuestionsVersion: Date.now() });
+        showSaveToast('✅ Đã lưu tất cả câu hỏi Kéo Co thành công!');
+        renderContentSections();
       };
 
       window.addTugStatement = function() {
-        const cur = window.getTugStatements();
-        cur.push({
+        const list = collectTugStatementsFromDOM();
+        list.push({
           id: Date.now(),
-          question: "Câu hỏi kéo co mới",
+          question: "Nội dung câu hỏi kéo co mới",
           options: ["Lựa chọn 1", "Lựa chọn 2", "Lựa chọn 3", "Lựa chọn 4"],
           answer: 0
         });
-        localStorage.setItem('ctg_custom_tug', JSON.stringify(cur));
-        window.tugStatements = cur;
+        localStorage.setItem('ctg_custom_tug', JSON.stringify(list));
+        window.tugStatements = list;
+        window.setGameState({ tugQuestionsVersion: Date.now() });
         renderContentSections();
+        showSaveToast('➕ Đã thêm câu hỏi kéo co vào danh sách!');
       };
 
       window.deleteTugStatement = function(i) {
         if (confirm('Bạn có chắc muốn xóa câu này?')) {
-          const cur = window.getTugStatements();
-          cur.splice(i, 1);
-          localStorage.setItem('ctg_custom_tug', JSON.stringify(cur));
-          window.tugStatements = cur;
+          const list = collectTugStatementsFromDOM();
+          list.splice(i, 1);
+          localStorage.setItem('ctg_custom_tug', JSON.stringify(list));
+          window.tugStatements = list;
+          window.setGameState({ tugQuestionsVersion: Date.now() });
           renderContentSections();
+          showSaveToast('🗑️ Đã xóa câu hỏi khỏi danh sách tạm!');
         }
       };
 
       window.resetTugToDefault = function() {
-        if (confirm('Đặt lại về câu hỏi mặc định?')) {
+        if (confirm('Đặt lại về câu hỏi mặc định? Tất cả chỉnh sửa chưa lưu sẽ bị mất.')) {
           localStorage.removeItem('ctg_custom_tug');
           window.tugStatements = window.getTugStatements();
+          window.setGameState({ tugQuestionsVersion: Date.now() });
           renderContentSections();
         }
       };
