@@ -1,0 +1,12 @@
+{
+  "name": "culture-training-game",
+  "version": "1.0.0",
+  "description": "Website vận hành chương trình Đào tạo Văn hóa Doanh nghiệp",
+  "main": "index.html",
+  "scripts": {
+    "dev": "http-server -p 8765 -c-1"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

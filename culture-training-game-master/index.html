@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chương Trình Đào Tạo & Trải Nghiệm Văn Hóa Doanh Nghiệp</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Hành trình trải nghiệm và thi tài văn hóa doanh nghiệp độc đáo, tương tác thời gian thực dành cho mọi phòng ban.">
+  <meta name="author" content="Antigravity Enterprise">
+
+  <!-- Prevent browser caching (fixes blank page on Chrome after code updates) -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Yellowtail&display=swap" rel="stylesheet">
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="./style.css">
+
+  <!-- Thư viện CDN -->
+  <!-- 1. Lucide Icons để hiển thị các biểu tượng sắc nét -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- 2. Canvas Confetti để bắn pháo hoa khi giành chiến thắng -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  
+  <style>
+    /* CSS In ấn riêng biệt cho Chứng nhận */
+    @media print {
+      body {
+        background: #fff !important;
+        color: #000 !important;
+      }
+      .app-header, .btn, button, #btnRestartJourney, #btnPrintCert {
+        display: none !important;
+      }
+      .container {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+      }
+      #certificate-print-area {
+        border: 4px double #000 !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        color: #000 !important;
+        padding: 40px !important;
+        width: 100% !important;
+      }
+      #certificate-print-area h1, 
+      #certificate-print-area h2, 
+      #certificate-print-area p, 
+      #certificate-print-area strong,
+      #certificate-print-area span {
+        color: #000 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Overlay chuyển cảnh -->
+  <div id="transition-overlay" style="display:none;">
+    <div class="heart-transition"></div>
+  </div>
+
+  <!-- Khung Header ứng dụng (đồng bộ trên các trang) -->
+  <div id="header-root" class="app-header" style="display: none;"></div>
+
+  <!-- Container chứa nội dung các màn hình -->
+  <main id="app-root" class="container"></main>
+
+  <!-- Container đặc biệt dành riêng cho hiệu ứng tim bay lên -->
+  <div id="hearts-container"></div>
+
+  <!-- Nạp các Script tuần tự theo thứ tự phụ thuộc (Không dùng type="module" để chạy trực tiếp trên file://) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+  <script>
+    try {
+      if (typeof firebase !== 'undefined') {
+        const firebaseConfig = {
+          apiKey: "AIzaSyBA9maiWp6rvqOxWBKpxni1vQ1UkfcMkm8",
+          authDomain: "oppocultureworkshop.firebaseapp.com",
+          databaseURL: "https://oppocultureworkshop-default-rtdb.firebaseio.com",
+          projectId: "oppocultureworkshop",
+          storageBucket: "oppocultureworkshop.firebasestorage.app",
+          messagingSenderId: "927864281287",
+          appId: "1:927864281287:web:989104ee9a74836da186e2",
+          measurementId: "G-36QQM6WDTB"
+        };
+        firebase.initializeApp(firebaseConfig);
+        window.db = firebase.database();
+        console.log("Firebase initialized successfully.");
+      } else {
+        console.warn("Firebase script failed to load. Falling back to local storage.");
+      }
+    } catch (e) {
+      console.error("Firebase init error:", e);
+    }
+  </script>
+  
+  <script src="./data.js?v=25"></script>
+  <script src="./state.js?v=25"></script>
+  <script src="./components/Login.js?v=25"></script>
+  <script src="./components/AdminDashboard.js?v=25"></script>
+  <script src="./components/TeamConnect.js?v=25"></script>
+  <script src="./components/QuizGame.js?v=25"></script>
+  <script src="./components/TugOfWar.js?v=25"></script>
+  <script src="./components/SeniorSharing.js?v=25"></script>
+  <script src="./components/KeywordGrid.js?v=25"></script>
+  <script src="./components/Certificate.js?v=25"></script>
+  <script src="./app.js?v=25"></script>
+</body>
+</html>
