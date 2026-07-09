@@ -1,5 +1,5 @@
 window.renderAdminDashboard = function(container, state, { onLogout }) {
-  let activeTab = 'control';
+  let activeTab = sessionStorage.getItem('admin_active_tab') || 'control';
   let cleanupFns = [];
 
   function render() {
@@ -90,6 +90,7 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
     container.querySelectorAll('.admin-tab').forEach(btn => {
       btn.addEventListener('click', () => {
         activeTab = btn.dataset.tab;
+        sessionStorage.setItem('admin_active_tab', activeTab);
         render();
       });
     });
@@ -763,7 +764,7 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
     const kws       = window.getKeywords();
     const timerSecs = window.getQuizTimerSecs();
 
-    let contentSection = 'quiz'; // quiz | tug | sharing | keywords | timer
+    let contentSection = sessionStorage.getItem('admin_content_section') || 'quiz'; // quiz | tug | sharing | keywords | timer
 
     function renderContentSections() {
       const st = window.getGameState();
@@ -816,6 +817,7 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
       el.querySelectorAll('[data-csect]').forEach(btn => {
         btn.addEventListener('click', () => {
           contentSection = btn.dataset.csect;
+          sessionStorage.setItem('admin_content_section', contentSection);
           renderContentSections();
         });
       });

@@ -233,6 +233,8 @@ function executeRender(state, isAdminLoggedIn, isHostLoggedIn, currentPlayerId, 
     activeComponentCleanup = window.renderAdminDashboard(rootContainer, state, {
       onLogout: () => {
         sessionStorage.removeItem('admin_logged_in');
+        sessionStorage.removeItem('admin_active_tab');
+        sessionStorage.removeItem('admin_content_section');
         lastRenderedStageState = null;
         window.renderApp(window.getGameState());
       }
