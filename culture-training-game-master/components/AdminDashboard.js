@@ -1257,8 +1257,14 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
                 <input type="text" class="editor-input" id="sc-avatar-${i}" value="${c.avatar || '👤'}" style="padding:9px 12px; width:80px; font-size:22px;">
               </div>
               <div style="margin-bottom:12px;">
-                <label style="font-size:12px;">Link Hình Ảnh (URL - Không bắt buộc)</label>
-                <input type="text" class="editor-input" id="sc-image-${i}" value="${c.image || ''}" placeholder="https://..." style="padding:9px 12px;">
+                <label style="font-size:12px;">Hình Ảnh Người Chia Sẻ (Link URL hoặc Tải lên từ thiết bị)</label>
+                <div style="display:flex; gap:10px; align-items:center;">
+                  <input type="text" class="editor-input" id="sc-image-${i}" value="${c.image || ''}" placeholder="https://... hoặc dữ liệu ảnh" style="padding:9px 12px; flex:1;">
+                  <input type="file" id="sc-file-${i}" accept="image/*" onchange="uploadSharingImage(${i}, this)" style="display:none;">
+                  <button type="button" class="btn btn-sm btn-secondary" onclick="document.getElementById('sc-file-${i}').click()" style="padding:10px 14px; font-weight:600; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;">
+                    <i data-lucide="image" style="width:14px; height:14px;"></i> Tải ảnh
+                  </button>
+                </div>
               </div>
               <div>
                 <label style="font-size:12px;">Nội dung câu chuyện</label>
@@ -1289,6 +1295,27 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
           window.setGameState({ sharingLayoutVersion: Date.now() });
         });
       });
+
+      window.uploadSharingImage = function(i, input) {
+        const file = input.files[0];
+        if (!file) return;
+        
+        if (file.size > 1024 * 1024) {
+          alert("Kích thước ảnh quá lớn! Vui lòng chọn ảnh nhỏ hơn 1MB để đảm bảo đồng bộ mượt mà.");
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const base64 = e.target.result;
+          const imgInput = inner.querySelector(`#sc-image-${i}`);
+          if (imgInput) {
+            imgInput.value = base64;
+            showSaveToast("✅ Đã nạp ảnh thiết bị! Nhớ bấm Lưu để đồng bộ.");
+          }
+        };
+        reader.readAsDataURL(file);
+      };
 
       window.saveSharingHeaders = function() {
         const title = inner.querySelector('#sc-main-title').value.trim();
@@ -1368,9 +1395,32 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
       };
     }
 
-    // ── Keywords editor ───────────────────────────────────────────────────────
     function renderKeywordsEditor(inner, kws) {
+      const st = window.getGameState();
       inner.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:16px; width:100%; margin-bottom:16px;">
+          <!-- Cấu hình Tiêu đề Host WordCloud -->
+          <div class="editor-card" style="padding:20px; width:100%; max-width:100%;">
+            <div style="font-size:13px; font-weight:700; color:var(--text-primary); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+              <i data-lucide="heading" style="width:16px;height:16px;color:var(--primary);"></i>
+              Cấu Hình Màn Hình Máy Chiếu (Đám Mây Từ Khóa)
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:12px;">
+              <div>
+                <label style="font-size:12px; display:block; margin-bottom:4px; font-weight:600; color:var(--text-secondary);">Tiêu đề hiển thị trên máy chiếu</label>
+                <input type="text" class="editor-input" id="wc-host-title" value="${st.wordCloudTitle || 'ĐÁM MÂY TỪ KHÓA'}" style="padding:9px 12px; width:100%;">
+              </div>
+              <div>
+                <label style="font-size:12px; display:block; margin-bottom:4px; font-weight:600; color:var(--text-secondary);">Mô tả / Hướng dẫn dưới tiêu đề</label>
+                <input type="text" class="editor-input" id="wc-host-sub" value="${st.wordCloudSubtitle || 'Người chơi hãy nhập những từ khóa bạn ấn tượng nhất trong ngày hôm nay!'}" style="padding:9px 12px; width:100%;">
+              </div>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="saveWCHostHeaders()" style="padding:8px 16px; font-weight:700;">
+              Lưu cấu hình máy chiếu
+            </button>
+          </div>
+        </div>
+
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
           ${kws.map((kw, i) => `
             <div class="editor-card">
@@ -1394,6 +1444,17 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
         </button>
       `;
       if (window.lucide) window.lucide.createIcons();
+
+      window.saveWCHostHeaders = function() {
+        const title = inner.querySelector('#wc-host-title').value.trim();
+        const subtitle = inner.querySelector('#wc-host-sub').value.trim();
+        window.setGameState({
+          wordCloudTitle: title,
+          wordCloudSubtitle: subtitle,
+          wordCloudVersion: Date.now()
+        });
+        showSaveToast('✅ Đã lưu tiêu đề & mô tả máy chiếu!');
+      };
 
       window.saveKeyword = function(i) {
         const cur = window.getKeywords();
@@ -1577,8 +1638,10 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
   // TAB 4 – CÀI ĐẶT
   // ────────────────────────────────────────────────────────────────────────────
   function renderTabSettings(el) {
+    const st = window.getGameState();
+    const depts = st.departments || ["HR", "Tech", "Sales", "Marketing", "Operations", "Finance"];
     el.innerHTML = `
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:24px; max-width:1000px;">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:24px; max-width:1100px; width:100%;">
 
         <!-- Welcome Settings -->
         <div class="glass-card" style="padding:28px;">
@@ -1600,6 +1663,31 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
                 <span id="lblMascotSize" style="font-size:12px; font-weight:700; color:var(--primary);">${st.welcomeSettings?.mascotSize || 180}</span>
               </div>
               <input type="range" id="rngMascotSize" min="50" max="400" value="${st.welcomeSettings?.mascotSize || 180}" style="width:100%;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Quản lý phòng ban -->
+        <div class="glass-card" style="padding:28px;">
+          <h3 style="font-size:16px; font-weight:700; color:var(--text-primary); margin-bottom:6px; display:flex; align-items:center; gap:8px;">
+            <i data-lucide="building" style="width:18px;height:18px;color:var(--primary);"></i>
+            Quản Lý Phòng Ban
+          </h3>
+          <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px; line-height:1.5;">
+            Thêm hoặc bớt các phòng ban trong danh mục lựa chọn của người chơi khi đăng nhập.
+          </p>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div id="admin-depts-list" style="display:flex; flex-wrap:wrap; gap:8px; max-height:120px; overflow-y:auto; padding:8px; border:1px solid rgba(15,23,42,0.08); border-radius:10px; background:rgba(15,23,42,0.02);">
+              ${depts.map((d, di) => `
+                <span class="badge" style="background:var(--primary-light); color:var(--primary-dark); font-weight:700; padding:6px 12px; border-radius:8px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
+                  ${d}
+                  <i data-lucide="x" onclick="removeDepartment(${di})" style="width:13px; height:13px; cursor:pointer; color:var(--danger); display:flex; align-items:center;"></i>
+                </span>
+              `).join('')}
+            </div>
+            <div style="display:flex; gap:8px;">
+              <input type="text" id="txtNewDept" class="editor-input" placeholder="Tên phòng ban mới..." style="padding:8px 12px; font-size:13px; flex:1;">
+              <button class="btn btn-primary btn-sm" onclick="addDepartment()" style="padding:8px 16px; font-weight:700;">Thêm</button>
             </div>
           </div>
         </div>
@@ -1688,6 +1776,30 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
         welcomeSettings: { ...(s.welcomeSettings || {}), mascotSize: parseInt(e.target.value, 10) }
       }));
     });
+
+    window.addDepartment = function() {
+      const txt = el.querySelector('#txtNewDept').value.trim();
+      if (!txt) return;
+      const st = window.getGameState();
+      const currentDepts = st.departments || ["HR", "Tech", "Sales", "Marketing", "Operations", "Finance"];
+      if (currentDepts.includes(txt)) {
+        alert('Phòng ban này đã tồn tại!');
+        return;
+      }
+      currentDepts.push(txt);
+      window.setGameState({ departments: currentDepts });
+      renderTabSettings(el);
+      showSaveToast('✅ Đã thêm phòng ban!');
+    };
+
+    window.removeDepartment = function(idx) {
+      const st = window.getGameState();
+      const currentDepts = st.departments || ["HR", "Tech", "Sales", "Marketing", "Operations", "Finance"];
+      const removed = currentDepts.splice(idx, 1);
+      window.setGameState({ departments: currentDepts });
+      renderTabSettings(el);
+      showSaveToast(`🗑️ Đã xóa phòng ban ${removed[0]}!`);
+    };
 
     window.changePIN = function() {
       const cur     = localStorage.getItem('ctg_admin_pin') || 'admin123';

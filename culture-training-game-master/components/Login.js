@@ -56,12 +56,9 @@ window.renderLogin = function(container, state, { onLoginSuccess, onAdminAccess 
                              font-family:var(--font); font-size:15px; color:var(--text-primary);
                              outline:none; cursor:pointer; transition:var(--transition); appearance:auto;">
                 <option value="" disabled selected>Chọn phòng ban của bạn</option>
-                <option value="HR">Nhân sự (HR)</option>
-                <option value="Tech">Công nghệ (Tech)</option>
-                <option value="Sales">Kinh doanh (Sales)</option>
-                <option value="Marketing">Marketing</option>
-                <option value="Operations">Vận hành (Operations)</option>
-                <option value="Finance">Tài chính (Finance)</option>
+                ${(state.departments || ["HR", "Tech", "Sales", "Marketing", "Operations", "Finance"]).map(d => `
+                  <option value="${d}">${d}</option>
+                `).join('')}
               </select>
             </div>
 

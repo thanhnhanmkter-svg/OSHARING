@@ -16,6 +16,9 @@ const DEFAULT_STATE = {
   },
   sharingTitle: "LẮNG NGHE THẾ HỆ ĐI TRƯỚC",
   sharingSubtitle: "Những câu chuyện thực tế từ các nhân sự thâm niên về hành trình phát triển và văn hóa làm việc. Hãy thả tim để bày tỏ sự trân trọng! ❤️",
+  departments: ["HR", "Tech", "Sales", "Marketing", "Operations", "Finance"],
+  wordCloudTitle: "ĐÁM MÂY TỪ KHÓA",
+  wordCloudSubtitle: "Người chơi hãy nhập những từ khóa bạn ấn tượng nhất trong ngày hôm nay!",
   players: [], // Danh sách người chơi [{ id, name, department, score, team, keywordsGuessed: [] }]
   sharingHearts: { 1: 0, 2: 0, 3: 0 }, // Lượt thả tim cho từng bài chia sẻ
   quizState: {
@@ -58,6 +61,7 @@ function mergeWithDefaults(data) {
     ...data,
     // Đảm bảo các sub-object quan trọng luôn có đầy đủ fields
     teams:        Array.isArray(data.teams) && data.teams.length > 0 ? data.teams : JSON.parse(JSON.stringify(DEFAULT_STATE.teams)),
+    departments:  Array.isArray(data.departments) ? data.departments : JSON.parse(JSON.stringify(DEFAULT_STATE.departments)),
     players:      Array.isArray(data.players)      ? data.players      : [],
     quizState:    { ...DEFAULT_STATE.quizState,    ...(data.quizState    || {}) },
     tugOfWar:     { 

@@ -13,10 +13,10 @@ window.renderKeywordGrid = function(container, state, { playerId, isHost }) {
         <div style="text-align:center; margin-top:50px; z-index:10; pointer-events:none;">
           <div class="section-eyebrow" style="justify-content:center; margin-bottom:16px;">Stage 4 · Nhìn Lại Hành Trình</div>
           <h1 style="font-size:54px; font-weight:900; color:var(--text-primary); letter-spacing:-0.03em; margin-bottom:12px; text-transform:uppercase;">
-            ĐÁM MÂY TỪ KHÓA
+            ${state.wordCloudTitle || "ĐÁM MÂY TỪ KHÓA"}
           </h1>
           <p style="color:var(--text-secondary); font-size:22px; max-width:800px; margin:0 auto; font-weight:500;">
-            Người chơi hãy nhập những từ khóa bạn ấn tượng nhất trong ngày hôm nay!
+            ${state.wordCloudSubtitle || "Người chơi hãy nhập những từ khóa bạn ấn tượng nhất trong ngày hôm nay!"}
           </p>
         </div>
 

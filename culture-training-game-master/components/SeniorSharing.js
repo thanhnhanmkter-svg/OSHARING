@@ -196,15 +196,6 @@ window.renderSeniorSharing = function(container, state, { playerId, isHost }) {
         }).join('')}
       </div>
 
-      <!-- Waiting note -->
-      <div style="margin-top:36px; text-align:center;" class="animate-pulse">
-        <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(16,185,129,0.08);
-                    border:1px solid rgba(16,185,129,0.2); border-radius:12px; padding:12px 24px;
-                    font-size:14px; color:var(--primary); font-weight:600;">
-          <i data-lucide="loader" class="animate-spin" style="width:16px;height:16px;"></i>
-          Đang chờ Admin kích hoạt giai đoạn tiếp theo (Giải mã từ khóa)...
-        </div>
-      </div>
     </div>
 
     <style>
