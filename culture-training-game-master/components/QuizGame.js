@@ -12,12 +12,21 @@ function normalizeString(str) {
 
 window.renderQuizGame = function(container, state, { playerId, isHost }) {
   const TIMER_SECS = window.getQuizTimerSecs ? window.getQuizTimerSecs() : 15;
+  const AUTO_NEXT_SECS = 7; // Thời gian hiện đáp án trước khi tự qua câu
   const allQs = window.getQuizQuestions ? window.getQuizQuestions() : window.quizQuestions;
   const quizState = state.quizState || { currentQuestionIndex: 0, isActive: false, showAnswer: false, startTime: 0 };
   const qIndex = quizState.currentQuestionIndex;
   const q = allQs[qIndex];
 
-  let timerInterval = null;
+  let timerInterval1 = null; // đếm ngược trả lời
+  let timerInterval2 = null; // đếm ngược qua câu
+
+  // Hàm tính thời gian còn lại hiện đáp án
+  function getAutoNextLeft() {
+    if (!quizState.answerDisplayStartTime) return AUTO_NEXT_SECS;
+    const elapsed = Math.floor((Date.now() - quizState.answerDisplayStartTime) / 1000);
+    return Math.max(0, AUTO_NEXT_SECS - elapsed);
+  }
 
   // ─── GIAO DIỆN HOST (MÁY CHIẾU) ──────────────────────────────────────────
   if (isHost) {
@@ -45,6 +54,8 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
         });
       }
     });
+
+    const autoNextLeft = getAutoNextLeft();
 
     container.innerHTML = `
       <div class="fade-in" style="max-width:960px; margin:40px auto; padding:40px;">
@@ -81,8 +92,9 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
               Tỷ lệ chính xác: <span style="color:var(--success); font-size:20px; font-weight:800;">${correctCount}/${totalAnswers}</span> người chơi
             </div>
             ${quizState.isActive && quizState.answerDisplayStartTime ? `
-              <div id="auto-next-indicator" style="margin-top: 16px; font-size: 13px; color: var(--text-muted); font-weight: 700;">
-                Tự động chuyển sang câu tiếp theo sau <span id="auto-next-secs" style="color: var(--primary);">7</span> giây...
+              <div style="margin-top:16px; display:inline-flex; align-items:center; gap:8px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); border-radius:12px; padding:10px 20px;">
+                <i data-lucide="clock" style="width:14px;height:14px;color:var(--primary);"></i>
+                <span style="font-size:13px; color:var(--text-muted); font-weight:700;">Tự động qua câu tiếp theo sau <span id="host-auto-next-secs" style="color:var(--primary); font-size:16px; font-weight:900;">${autoNextLeft}</span> giây</span>
               </div>
             ` : ''}
           </div>
@@ -129,10 +141,10 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
 
     if (window.lucide) window.lucide.createIcons();
 
-    // Đồng bộ đếm ngược Host (khi đang trả lời)
+    // Timer 1: Đếm ngược trả lời → tự hiện đáp án khi hết giờ
     if (quizState.isActive && !quizState.showAnswer && quizState.startTime) {
       const timerEl = container.querySelector('#host-timer');
-      timerInterval = setInterval(() => {
+      timerInterval1 = setInterval(() => {
         const elapsed = Math.floor((Date.now() - quizState.startTime) / 1000);
         const left = Math.max(0, TIMER_SECS - elapsed);
         if (timerEl) {
@@ -144,56 +156,65 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
           }
         }
         if (left <= 0) {
-          clearInterval(timerInterval);
-          // Tự động chuyển trạng thái hiện đáp án
-          window.setGameState({
-            quizState: {
-              ...quizState,
-              showAnswer: true,
-              answerDisplayStartTime: Date.now()
-            }
-          });
-        }
-      }, 250);
-    }
-
-    // Đồng bộ tự động qua câu (sau khi hiện đáp án)
-    if (quizState.isActive && quizState.showAnswer && quizState.answerDisplayStartTime) {
-      const indicatorEl = container.querySelector('#auto-next-secs');
-      timerInterval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - quizState.answerDisplayStartTime) / 1000);
-        const left = Math.max(0, 7 - elapsed);
-        if (indicatorEl) {
-          indicatorEl.textContent = left;
-        }
-        if (left <= 0) {
-          clearInterval(timerInterval);
-          const nextIdx = qIndex + 1;
-          if (nextIdx < allQs.length) {
-            window.setGameState({
-              quizState: {
-                currentQuestionIndex: nextIdx,
-                isActive: true,
-                showAnswer: false,
-                startTime: Date.now(),
-                answers: {}
-              }
-            });
-          } else {
-            // Đã hết câu hỏi
+          clearInterval(timerInterval1);
+          // Guard để tránh gọi nhiều lần
+          if (!window._quizAutoShowingAnswer) {
+            window._quizAutoShowingAnswer = true;
             window.setGameState({
               quizState: {
                 ...quizState,
-                isActive: false,
-                showAnswer: true
+                showAnswer: true,
+                answerDisplayStartTime: Date.now()
               }
             });
+            setTimeout(() => { window._quizAutoShowingAnswer = false; }, 3000);
           }
         }
       }, 250);
     }
 
-    return () => { if (timerInterval) clearInterval(timerInterval); };
+    // Timer 2: Đếm ngược hiện đáp án → tự qua câu tiếp theo
+    if (quizState.isActive && quizState.showAnswer && quizState.answerDisplayStartTime) {
+      const secsEl = container.querySelector('#host-auto-next-secs');
+      timerInterval2 = setInterval(() => {
+        const left = getAutoNextLeft();
+        if (secsEl) secsEl.textContent = left;
+        if (left <= 0) {
+          clearInterval(timerInterval2);
+          if (!window._quizAutoAdvancing) {
+            window._quizAutoAdvancing = true;
+            const nextIdx = qIndex + 1;
+            if (nextIdx < allQs.length) {
+              window.setGameState({
+                quizState: {
+                  currentQuestionIndex: nextIdx,
+                  isActive: true,
+                  showAnswer: false,
+                  startTime: Date.now(),
+                  answerDisplayStartTime: null,
+                  answers: {}
+                }
+              });
+            } else {
+              // Hết câu hỏi - dừng game
+              window.setGameState({
+                quizState: {
+                  ...quizState,
+                  isActive: false,
+                  answerDisplayStartTime: null
+                }
+              });
+            }
+            setTimeout(() => { window._quizAutoAdvancing = false; }, 3000);
+          }
+        }
+      }, 250);
+    }
+
+    return () => {
+      if (timerInterval1) clearInterval(timerInterval1);
+      if (timerInterval2) clearInterval(timerInterval2);
+    };
   }
 
   // ─── GIAO DIỆN NGƯỜI CHƠI ──────────────────────────────────────────────────
@@ -205,6 +226,7 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
   
   const hasAnsweredCurrent = userAnswers.hasOwnProperty(qIndex);
   const myAnswer = hasAnsweredCurrent ? userAnswers[qIndex] : '';
+  const autoNextLeft = getAutoNextLeft();
 
   container.innerHTML = `
     <div class="fade-in" style="max-width:500px; margin:20px auto; padding:20px;">
@@ -256,7 +278,7 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
               <span style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--text-muted); display:block;">Đáp án bạn đã gửi</span>
               <strong style="font-size:18px; color:var(--primary); text-transform:uppercase;">"${myAnswer}"</strong>
             </div>
-            <p style="font-size:13px; color:var(--text-muted); margin-top:20px; font-style:italic;">Hãy chờ Quản trị viên công bố kết quả...</p>
+            <p style="font-size:13px; color:var(--text-muted); margin-top:20px; font-style:italic;">Đang chờ kết quả...</p>
           </div>
         ` : ''}
 
@@ -276,6 +298,13 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
               <span style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--text-muted); display:block;">Đáp án đúng</span>
               <strong style="font-size:22px; color:var(--primary); text-transform:uppercase;">"${q.answer}"</strong>
             </div>
+
+            ${quizState.isActive && quizState.answerDisplayStartTime ? `
+              <div style="margin-top:16px; display:inline-flex; align-items:center; gap:8px; background:rgba(15,23,42,0.04); border-radius:10px; padding:8px 16px;">
+                <i data-lucide="clock" style="width:13px;height:13px;color:var(--text-muted);"></i>
+                <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Câu tiếp theo sau <span id="player-auto-next-secs" style="color:var(--primary); font-weight:900;">${autoNextLeft}</span> giây</span>
+              </div>
+            ` : ''}
           </div>
         ` : ''}
       ` : ''}
@@ -285,11 +314,10 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
 
   if (window.lucide) window.lucide.createIcons();
 
-  // Xử lý đếm ngược thanh thời gian cho Player
-  let timeIsUpLocal = false;
+  // Timer 1: thanh đếm ngược trả lời cho Player
   if (quizState.isActive && !quizState.showAnswer && !hasAnsweredCurrent && quizState.startTime) {
     const bar = container.querySelector('#player-timer-bar');
-    timerInterval = setInterval(() => {
+    timerInterval1 = setInterval(() => {
       const elapsed = Math.floor((Date.now() - quizState.startTime) / 1000);
       const left = Math.max(0, TIMER_SECS - elapsed);
       if (bar) {
@@ -297,8 +325,7 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
         if (left <= 5) bar.style.background = 'var(--danger)';
       }
       if (left <= 0) {
-        timeIsUpLocal = true;
-        clearInterval(timerInterval);
+        clearInterval(timerInterval1);
         if (!hasAnsweredCurrent) {
           userAnswers[qIndex] = "";
           sessionStorage.setItem(localAnswersKey, JSON.stringify(userAnswers));
@@ -314,13 +341,22 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
     }, 200);
   }
 
-  // Xử lý gửi đáp án điền vào chỗ trống
-  if (!hasAnsweredCurrent && !timeIsUpLocal && !quizState.showAnswer) {
+  // Timer 2: đếm ngược qua câu tiếp theo cho Player (chỉ hiển thị, không gọi setGameState)
+  if (quizState.isActive && quizState.showAnswer && quizState.answerDisplayStartTime) {
+    const secsEl = container.querySelector('#player-auto-next-secs');
+    timerInterval2 = setInterval(() => {
+      const left = getAutoNextLeft();
+      if (secsEl) secsEl.textContent = left;
+      if (left <= 0) clearInterval(timerInterval2);
+    }, 250);
+  }
+
+  // Xử lý gửi đáp án
+  if (!hasAnsweredCurrent && !quizState.showAnswer && quizState.isActive) {
     const inputEl = container.querySelector('#player-fill-input');
     const submitBtn = container.querySelector('#btnSubmitFill');
 
     if (inputEl && submitBtn) {
-      // Focus vào input
       inputEl.focus();
 
       const sendAnswer = () => {
@@ -350,12 +386,13 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
 
       submitBtn.addEventListener('click', sendAnswer);
       inputEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          sendAnswer();
-        }
+        if (e.key === 'Enter') sendAnswer();
       });
     }
   }
 
-  return () => { if (timerInterval) clearInterval(timerInterval); };
+  return () => {
+    if (timerInterval1) clearInterval(timerInterval1);
+    if (timerInterval2) clearInterval(timerInterval2);
+  };
 };

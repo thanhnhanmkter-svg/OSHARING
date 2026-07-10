@@ -559,10 +559,15 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
     el.querySelector('#btnQuizShowAnswer').addEventListener('click', () => {
       window.setGameState(s => ({
         ...s, 
-        quizState: { ...s.quizState, showAnswer: !s.quizState.showAnswer }
+        quizState: { 
+          ...s.quizState, 
+          showAnswer: !s.quizState.showAnswer,
+          answerDisplayStartTime: !s.quizState.showAnswer ? Date.now() : null
+        }
       }));
       render();
     });
+
 
     // Tug controls (New logic)
     const btnStartTugMatch = el.querySelector('#btnStartTugMatch');

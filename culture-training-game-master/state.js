@@ -25,9 +25,11 @@ const DEFAULT_STATE = {
     currentQuestionIndex: 0,
     showAnswer: false, // Admin bật để Host hiện đáp án và người chơi ngưng trả lời
     startTime: null,   // Lưu thời điểm bắt đầu để đếm ngược đồng bộ
+    answerDisplayStartTime: null, // Lưu thời điểm bắt đầu hiện đáp án để tự động qua câu
     isActive: false, // Admin bật khi bắt đầu câu hỏi
     answers: {} // { "playerId": { option: 1 } }
   },
+
   tugOfWar: {
     round: 1, // 1 hoặc 2
     teamA: 'Red',
