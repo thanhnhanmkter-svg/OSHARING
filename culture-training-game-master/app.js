@@ -295,9 +295,21 @@ function executeRender(state, isAdminLoggedIn, isHostLoggedIn, currentPlayerId, 
             <div style="position: absolute; width: 400px; height: 400px; background: radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%); top: -100px; left: -100px; pointer-events: none; border-radius: 50%;"></div>
             <div style="position: absolute; width: 500px; height: 500px; background: radial-gradient(circle, rgba(14,165,233,0.05) 0%, transparent 70%); bottom: -150px; right: -150px; pointer-events: none; border-radius: 50%;"></div>
 
-            <div style="display:flex; flex-direction:column; align-items:center; gap: ${Math.max(16, welcome.textSize * 0.25)}px; max-width: 90%; z-index: 1;">
-              <div style="display: flex; justify-content: center; align-items: center; min-height: ${welcome.mascotSize}px;">
-                <img src="assets/mascot.png" alt="Ollie" style="width:${welcome.mascotSize}px; height:${welcome.mascotSize}px; object-fit:contain; animation: mascot-bounce-in 1.2s var(--ease-spring), mascot-float 5s ease-in-out infinite 1.2s; filter: drop-shadow(0 20px 30px rgba(16,185,129,0.15));">
+            <div style="display:flex; flex-direction:column; align-items:center; gap: 24px; max-width: 90%; z-index: 1;">
+              
+              <div style="display: flex; align-items: center; justify-content: center; gap: 60px; flex-wrap: wrap; margin-bottom: 10px;">
+                <!-- Ollie Mascot -->
+                <div style="display: flex; justify-content: center; align-items: center; min-height: ${welcome.mascotSize}px;">
+                  <img src="assets/mascot.png" alt="Ollie" style="width:${welcome.mascotSize}px; height:${welcome.mascotSize}px; object-fit:contain; animation: mascot-bounce-in 1.2s var(--ease-spring), mascot-float 5s ease-in-out infinite 1.2s; filter: drop-shadow(0 20px 30px rgba(16,185,129,0.15));">
+                </div>
+                
+                <!-- QR Code Block -->
+                <div class="glass-card" style="padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; background: rgba(255, 255, 255, 0.85); box-shadow: 0 10px 30px rgba(0,0,0,0.08); border-radius: 20px; border: 2px solid var(--primary-light);">
+                  <div id="host-qr-container" style="background: white; padding: 10px; border-radius: 12px;"></div>
+                  <div style="font-size: 14px; font-weight: 800; color: var(--primary-dark); display: flex; align-items: center; gap: 6px;">
+                    <i data-lucide="qr-code" style="width:16px; height:16px;"></i> Quét QR tham gia game!
+                  </div>
+                </div>
               </div>
               
               <div style="display: flex; flex-direction: column; align-items: center;">
@@ -346,6 +358,20 @@ function executeRender(state, isAdminLoggedIn, isHostLoggedIn, currentPlayerId, 
             </div>
           </div>
         `;
+        
+        // Tạo mã QR động trỏ tới URL hiện tại
+        const qrContainer = rootContainer.querySelector('#host-qr-container');
+        if (qrContainer && window.QRCode) {
+          new window.QRCode(qrContainer, {
+            text: window.location.href,
+            width: 150,
+            height: 150,
+            colorDark : "#059669",
+            colorLight : "#ffffff",
+            correctLevel : window.QRCode.CorrectLevel.H
+          });
+        }
+
         if (window.lucide) window.lucide.createIcons();
       } else {
         renderWaitingLobby(rootContainer, player);
