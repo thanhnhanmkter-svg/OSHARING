@@ -80,6 +80,11 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
             <div style="font-size:16px; color:var(--text-secondary); margin-top:12px; font-weight:600;">
               Tỷ lệ chính xác: <span style="color:var(--success); font-size:20px; font-weight:800;">${correctCount}/${totalAnswers}</span> người chơi
             </div>
+            ${quizState.isActive && quizState.answerDisplayStartTime ? `
+              <div id="auto-next-indicator" style="margin-top: 16px; font-size: 13px; color: var(--text-muted); font-weight: 700;">
+                Tự động chuyển sang câu tiếp theo sau <span id="auto-next-secs" style="color: var(--primary);">7</span> giây...
+              </div>
+            ` : ''}
           </div>
 
           <!-- Danh sách câu trả lời của người chơi -->
@@ -124,7 +129,7 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
 
     if (window.lucide) window.lucide.createIcons();
 
-    // Đồng bộ đếm ngược Host
+    // Đồng bộ đếm ngược Host (khi đang trả lời)
     if (quizState.isActive && !quizState.showAnswer && quizState.startTime) {
       const timerEl = container.querySelector('#host-timer');
       timerInterval = setInterval(() => {
@@ -138,8 +143,54 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
             timerEl.style.boxShadow = '0 0 20px rgba(239,68,68,0.4)';
           }
         }
-        if (left <= 0) clearInterval(timerInterval);
-      }, 200);
+        if (left <= 0) {
+          clearInterval(timerInterval);
+          // Tự động chuyển trạng thái hiện đáp án
+          window.setGameState({
+            quizState: {
+              ...quizState,
+              showAnswer: true,
+              answerDisplayStartTime: Date.now()
+            }
+          });
+        }
+      }, 250);
+    }
+
+    // Đồng bộ tự động qua câu (sau khi hiện đáp án)
+    if (quizState.isActive && quizState.showAnswer && quizState.answerDisplayStartTime) {
+      const indicatorEl = container.querySelector('#auto-next-secs');
+      timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - quizState.answerDisplayStartTime) / 1000);
+        const left = Math.max(0, 7 - elapsed);
+        if (indicatorEl) {
+          indicatorEl.textContent = left;
+        }
+        if (left <= 0) {
+          clearInterval(timerInterval);
+          const nextIdx = qIndex + 1;
+          if (nextIdx < allQs.length) {
+            window.setGameState({
+              quizState: {
+                currentQuestionIndex: nextIdx,
+                isActive: true,
+                showAnswer: false,
+                startTime: Date.now(),
+                answers: {}
+              }
+            });
+          } else {
+            // Đã hết câu hỏi
+            window.setGameState({
+              quizState: {
+                ...quizState,
+                isActive: false,
+                showAnswer: true
+              }
+            });
+          }
+        }
+      }, 250);
     }
 
     return () => { if (timerInterval) clearInterval(timerInterval); };
