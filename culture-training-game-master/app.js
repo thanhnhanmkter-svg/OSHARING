@@ -140,22 +140,14 @@ window.renderApp = function (state) {
     }
 
     // Định danh màn hình hiện tại. Thêm các thuộc tính chi tiết để re-render khi qua câu, bắt đầu, hiện đáp án.
-    const currentStageState = `stage:${state.stage}-tc:${state.teamConnectActive}-title:${state.showTitleScreen}-admin:${isAdminLoggedIn}-host:${isHostLoggedIn}-player:${!!player}-reset:${state.globalResetCounter || 0}-quiz:${JSON.stringify(state.quizState)}-tug:${JSON.stringify({ idx: state.tugOfWar?.currentQuestionIndex, reviewIdx: state.tugOfWar?.reviewQuestionIndex, active: state.tugOfWar?.isActive, winner: state.tugOfWar?.winner, status: state.tugOfWar?.status, round: state.tugOfWar?.round, ansLen: Object.keys(state.tugOfWar?.answers || {}).length })}-welcome:${JSON.stringify(state.welcomeSettings)}-players:${(state.players || []).map(p => p.id + ':' + p.team).join(',')}-sharingCardsVersion:${state.sharingCardsVersion || 0}-sharingLayoutVersion:${state.sharingLayoutVersion || 0}-quizQuestionsVersion:${state.quizQuestionsVersion || 0}-tugQuestionsVersion:${state.tugQuestionsVersion || 0}-wordCloudVersion:${state.wordCloudVersion || 0}`;
+    const currentStageState = `stage:${state.stage}-tc:${state.teamConnectActive}-title:${state.showTitleScreen}-admin:${isAdminLoggedIn}-host:${isHostLoggedIn}-player:${!!player}-reset:${state.globalResetCounter || 0}-quiz:${JSON.stringify({ idx: state.quizState?.currentQuestionIndex, active: state.quizState?.isActive, showAns: state.quizState?.showAnswer, startTime: state.quizState?.startTime, answerDisplayStartTime: state.quizState?.answerDisplayStartTime })}-tug:${JSON.stringify({ idx: state.tugOfWar?.currentQuestionIndex, reviewIdx: state.tugOfWar?.reviewQuestionIndex, active: state.tugOfWar?.isActive, winner: state.tugOfWar?.winner, status: state.tugOfWar?.status, round: state.tugOfWar?.round, startTime: state.tugOfWar?.startTime })}-welcome:${JSON.stringify(state.welcomeSettings)}-players:${(state.players || []).map(p => p.id + ':' + p.team).join(',')}-sharingCardsVersion:${state.sharingCardsVersion || 0}-sharingLayoutVersion:${state.sharingLayoutVersion || 0}-quizQuestionsVersion:${state.quizQuestionsVersion || 0}-tugQuestionsVersion:${state.tugQuestionsVersion || 0}-wordCloudVersion:${state.wordCloudVersion || 0}`;
 
     if (lastRenderedStageState === currentStageState) {
       return; // Không mount lại toàn bộ DOM để tránh giật lag, mất focus input và hỏng CSS transition.
     }
 
-    const isScreenChanged = lastRenderedStageState && lastRenderedStageState !== currentStageState;
-
-    if (isScreenChanged && !isAdminLoggedIn && (!!player || isHostLoggedIn) && state.stage !== 0 && state.stage !== 2) {
-      // Nếu màn hình đổi và là người chơi/Host -> Chạy hiệu ứng tim tràn viền (Không áp dụng cho Stage 2 Kéo co)
-      lastRenderedStageState = currentStageState;
-      triggerHeartTransition(() => executeRender(state, isAdminLoggedIn, isHostLoggedIn, currentPlayerId, player));
-    } else {
-      lastRenderedStageState = currentStageState;
-      executeRender(state, isAdminLoggedIn, isHostLoggedIn, currentPlayerId, player);
-    }
+    lastRenderedStageState = currentStageState;
+    executeRender(state, isAdminLoggedIn, isHostLoggedIn, currentPlayerId, player);
   } catch (err) {
     console.error("Critical Render Error:", err);
     document.body.innerHTML = `<div style="padding: 20px; color: red; font-family: monospace; background: white; z-index: 9999; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">

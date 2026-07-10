@@ -250,7 +250,7 @@ window.renderTugOfWar = function(container, state, { playerId, isHost }) {
   const localAnswersKey = `tug_answers_${playerId}_round_${tugState.round}`;
   let userAnswers = JSON.parse(sessionStorage.getItem(localAnswersKey) || '{}');
   
-  const hasAnsweredCurrent = userAnswers.hasOwnProperty(currentStatementIdx);
+  let hasAnsweredCurrent = userAnswers.hasOwnProperty(currentStatementIdx);
   const myAnswer = hasAnsweredCurrent ? userAnswers[currentStatementIdx] : null;
 
   // 1. Nếu không phải là người chơi của 2 đội tham chiến -> Chế độ Spectator
@@ -336,27 +336,29 @@ window.renderTugOfWar = function(container, state, { playerId, isHost }) {
             "${stmt.question}"
           </p>
 
-          ${!hasAnsweredCurrent ? `
-            <div style="display:grid; grid-template-columns:1fr; gap:12px; text-align:left;">
-              ${stmt.options.map((opt, idx) => `
-                <button class="btn btn-outline tug-opt-btn" data-idx="${idx}" style="padding:14px 20px; border-color:rgba(15,23,42,0.1); color:var(--text-primary); font-size:15px; border-radius:14px; text-align:left; justify-content:flex-start; white-space:normal; height:auto; line-height:1.4;">
-                  <strong style="font-size:18px; margin-right:8px; opacity:0.8;">${['A','B','C','D'][idx]}</strong> ${opt}
-                </button>
-              `).join('')}
-            </div>
-          ` : `
-            <!-- Khóa đáp án và không hiển thị đúng/sai, chỉ báo ghi nhận -->
-            <div class="glass-card fade-in" style="padding:20px; background:rgba(16,185,129,0.05); border:1px dashed rgba(16,185,129,0.3); border-radius:16px;">
-              <div style="font-size:32px; margin-bottom:8px;">📥</div>
-              <h4 style="font-size:16px; font-weight:800; color:var(--primary-dark); margin-bottom:4px;">Đã gửi câu trả lời!</h4>
-              <p style="font-size:13px; color:var(--text-secondary); margin:0;">
-                Lựa chọn của bạn: <strong>${['A','B','C','D'][myAnswer] || 'Không có'}</strong>
-              </p>
-              <p style="font-size:12px; color:var(--text-muted); margin-top:12px; font-style:italic;">
-                Hãy chờ tất cả người chơi hoàn thành lượt để tự qua câu tiếp theo...
-              </p>
-            </div>
-          `}
+          <div id="player-tug-action-area">
+            ${!hasAnsweredCurrent ? `
+              <div style="display:grid; grid-template-columns:1fr; gap:12px; text-align:left;">
+                ${stmt.options.map((opt, idx) => `
+                  <button class="btn btn-outline tug-opt-btn" data-idx="${idx}" style="padding:14px 20px; border-color:rgba(15,23,42,0.1); color:var(--text-primary); font-size:15px; border-radius:14px; text-align:left; justify-content:flex-start; white-space:normal; height:auto; line-height:1.4;">
+                    <strong style="font-size:18px; margin-right:8px; opacity:0.8;">${['A','B','C','D'][idx]}</strong> ${opt}
+                  </button>
+                `).join('')}
+              </div>
+            ` : `
+              <!-- Khóa đáp án và không hiển thị đúng/sai, chỉ báo ghi nhận -->
+              <div class="glass-card" style="padding:20px; background:rgba(16,185,129,0.05); border:1px dashed rgba(16,185,129,0.3); border-radius:16px;">
+                <div style="font-size:32px; margin-bottom:8px;">📥</div>
+                <h4 style="font-size:16px; font-weight:800; color:var(--primary-dark); margin-bottom:4px;">Đã gửi câu trả lời!</h4>
+                <p style="font-size:13px; color:var(--text-secondary); margin:0;">
+                  Lựa chọn của bạn: <strong>${['A','B','C','D'][myAnswer] || 'Không có'}</strong>
+                </p>
+                <p style="font-size:12px; color:var(--text-muted); margin-top:12px; font-style:italic;">
+                  Hãy chờ tất cả người chơi hoàn thành lượt để tự qua câu tiếp theo...
+                </p>
+              </div>
+            `}
+          </div>
         </div>
       </div>
     `;
@@ -439,6 +441,30 @@ window.renderTugOfWar = function(container, state, { playerId, isHost }) {
   // Hàm xử lý gửi câu trả lời
   function submitTugAnswer(choice) {
     if (hasAnsweredCurrent) return;
+    hasAnsweredCurrent = true;
+
+    if (playerTimerInterval) {
+      clearInterval(playerTimerInterval);
+      playerTimerInterval = null;
+    }
+    const timerBarEl = container.querySelector('#player-tug-timer-bar');
+    if (timerBarEl && timerBarEl.parentElement) timerBarEl.parentElement.style.display = 'none';
+
+    const actionArea = container.querySelector('#player-tug-action-area');
+    if (actionArea) {
+      actionArea.innerHTML = `
+        <div class="glass-card" style="padding:20px; background:rgba(16,185,129,0.05); border:1px dashed rgba(16,185,129,0.3); border-radius:16px;">
+          <div style="font-size:32px; margin-bottom:8px;">📥</div>
+          <h4 style="font-size:16px; font-weight:800; color:var(--primary-dark); margin-bottom:4px;">Đã gửi câu trả lời!</h4>
+          <p style="font-size:13px; color:var(--text-secondary); margin:0;">
+            Lựa chọn của bạn: <strong>${['A','B','C','D'][choice] || 'Không có'}</strong>
+          </p>
+          <p style="font-size:12px; color:var(--text-muted); margin-top:12px; font-style:italic;">
+            Hãy chờ tất cả người chơi hoàn thành lượt để tự qua câu tiếp theo...
+          </p>
+        </div>
+      `;
+    }
 
     userAnswers[currentStatementIdx] = choice;
     sessionStorage.setItem(localAnswersKey, JSON.stringify(userAnswers));

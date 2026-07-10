@@ -70,7 +70,7 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
             ` : ''}
             ${quizState.isActive && !quizState.showAnswer ? `
               <div style="font-size:16px; font-weight:700; color:var(--text-secondary); background:var(--bg-card); padding:8px 16px; border-radius:100px;">
-                Đã trả lời: <strong style="color:var(--primary);">${totalAnswers}</strong>
+                Đã trả lời: <strong id="host-answered-count" style="color:var(--primary);">${totalAnswers}</strong>
               </div>
             ` : ''}
           </div>
@@ -211,7 +211,21 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
       }, 250);
     }
 
+    const unsubHost = window.subscribeToState(newState => {
+      if (newState.stage !== 1) return;
+      const qs = newState.quizState;
+      if (!qs) return;
+      const ansObj = qs.answers || {};
+      let total = 0;
+      (newState.players || []).forEach(p => {
+        if (ansObj[p.id]) total++;
+      });
+      const ansCountEl = container.querySelector('#host-answered-count');
+      if (ansCountEl) ansCountEl.textContent = total;
+    });
+
     return () => {
+      if (unsubHost) unsubHost();
       if (timerInterval1) clearInterval(timerInterval1);
       if (timerInterval2) clearInterval(timerInterval2);
     };
@@ -253,32 +267,36 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
             <div id="player-timer-bar" style="height:100%; width:100%; background:var(--primary); transition:width 0.2s linear;"></div>
           </div>
 
-          <div class="glass-card fade-in" style="padding:24px;">
-            <div style="font-size:16px; font-weight:700; color:var(--text-primary); margin-bottom:16px; line-height:1.5;">
-              ${q.question}
-            </div>
-            
-            <div style="display:flex; flex-direction:column; gap:12px;">
-              <input type="text" id="player-fill-input" class="form-input" 
-                     style="font-size:18px; font-weight:800; text-align:center; padding:12px; border-radius:12px; border:2px solid rgba(15,23,42,0.15);" 
-                     placeholder="Nhập câu trả lời của bạn..." autocomplete="off">
+          <div id="player-quiz-card-wrapper">
+            <div class="glass-card fade-in" style="padding:24px;">
+              <div style="font-size:16px; font-weight:700; color:var(--text-primary); margin-bottom:16px; line-height:1.5;">
+                ${q.question}
+              </div>
               
-              <button id="btnSubmitFill" class="btn btn-primary" style="padding:12px; font-weight:800; font-size:16px; display:flex; align-items:center; justify-content:center; gap:8px;">
-                Gửi đáp án <i data-lucide="send" style="width:16px;height:16px;"></i>
-              </button>
+              <div style="display:flex; flex-direction:column; gap:12px;">
+                <input type="text" id="player-fill-input" class="form-input" 
+                       style="font-size:18px; font-weight:800; text-align:center; padding:12px; border-radius:12px; border:2px solid rgba(15,23,42,0.15);" 
+                       placeholder="Nhập câu trả lời của bạn..." autocomplete="off">
+                
+                <button id="btnSubmitFill" class="btn btn-primary" style="padding:12px; font-weight:800; font-size:16px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                  Gửi đáp án <i data-lucide="send" style="width:16px;height:16px;"></i>
+                </button>
+              </div>
             </div>
           </div>
         ` : ''}
 
         ${hasAnsweredCurrent && !quizState.showAnswer ? `
-          <div class="glass-card fade-in" style="padding:32px 24px; text-align:center;">
-            <div style="font-size:40px; margin-bottom:12px;">📥</div>
-            <h3 style="font-size:18px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">Đã ghi nhận câu trả lời!</h3>
-            <div style="display:inline-block; background:rgba(16,185,129,0.08); border:1.5px solid rgba(16,185,129,0.2); padding:10px 20px; border-radius:12px; margin-top:8px;">
-              <span style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--text-muted); display:block;">Đáp án bạn đã gửi</span>
-              <strong style="font-size:18px; color:var(--primary); text-transform:uppercase;">"${myAnswer}"</strong>
+          <div id="player-quiz-card-wrapper">
+            <div class="glass-card fade-in" style="padding:32px 24px; text-align:center;">
+              <div style="font-size:40px; margin-bottom:12px;">📥</div>
+              <h3 style="font-size:18px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">Đã ghi nhận câu trả lời!</h3>
+              <div style="display:inline-block; background:rgba(16,185,129,0.08); border:1.5px solid rgba(16,185,129,0.2); padding:10px 20px; border-radius:12px; margin-top:8px;">
+                <span style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--text-muted); display:block;">Đáp án bạn đã gửi</span>
+                <strong style="font-size:18px; color:var(--primary); text-transform:uppercase;">"${myAnswer}"</strong>
+              </div>
+              <p style="font-size:13px; color:var(--text-muted); margin-top:20px; font-style:italic;">Đang chờ kết quả...</p>
             </div>
-            <p style="font-size:13px; color:var(--text-muted); margin-top:20px; font-style:italic;">Đang chờ kết quả...</p>
           </div>
         ` : ''}
 
@@ -326,9 +344,22 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
       }
       if (left <= 0) {
         clearInterval(timerInterval1);
+        timerInterval1 = null;
         if (!hasAnsweredCurrent) {
           userAnswers[qIndex] = "";
           sessionStorage.setItem(localAnswersKey, JSON.stringify(userAnswers));
+          const timerBarEl = container.querySelector('#player-timer-bar');
+          if (timerBarEl && timerBarEl.parentElement) timerBarEl.parentElement.style.display = 'none';
+          const cardWrapper = container.querySelector('#player-quiz-card-wrapper');
+          if (cardWrapper) {
+            cardWrapper.innerHTML = `
+              <div class="glass-card" style="padding:32px 24px; text-align:center;">
+                <div style="font-size:40px; margin-bottom:12px;">⏰</div>
+                <h3 style="font-size:18px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">Hết thời gian trả lời!</h3>
+                <p style="font-size:13px; color:var(--text-muted); margin-top:20px; font-style:italic;">Đang chờ kết quả...</p>
+              </div>
+            `;
+          }
           window.setGameState(s => ({
             ...s,
             quizState: {
@@ -367,6 +398,28 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
         sessionStorage.setItem(localAnswersKey, JSON.stringify(userAnswers));
 
         const isCorrect = normalizeString(textVal) === normalizeString(q.answer);
+
+        if (timerInterval1) {
+          clearInterval(timerInterval1);
+          timerInterval1 = null;
+        }
+        const timerBarEl = container.querySelector('#player-timer-bar');
+        if (timerBarEl && timerBarEl.parentElement) timerBarEl.parentElement.style.display = 'none';
+
+        const cardWrapper = container.querySelector('#player-quiz-card-wrapper');
+        if (cardWrapper) {
+          cardWrapper.innerHTML = `
+            <div class="glass-card" style="padding:32px 24px; text-align:center;">
+              <div style="font-size:40px; margin-bottom:12px;">📥</div>
+              <h3 style="font-size:18px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">Đã ghi nhận câu trả lời!</h3>
+              <div style="display:inline-block; background:rgba(16,185,129,0.08); border:1.5px solid rgba(16,185,129,0.2); padding:10px 20px; border-radius:12px; margin-top:8px;">
+                <span style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--text-muted); display:block;">Đáp án bạn đã gửi</span>
+                <strong style="font-size:18px; color:var(--primary); text-transform:uppercase;">"${textVal}"</strong>
+              </div>
+              <p style="font-size:13px; color:var(--text-muted); margin-top:20px; font-style:italic;">Đang chờ kết quả...</p>
+            </div>
+          `;
+        }
 
         window.setGameState(s => {
           let updatedPlayers = s.players;

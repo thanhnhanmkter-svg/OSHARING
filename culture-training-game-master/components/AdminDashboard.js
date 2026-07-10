@@ -284,7 +284,7 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
 
                 <div style="display:flex; gap:12px; justify-content:space-between; align-items:center;">
                   <div style="font-size:13px; font-weight:600; color:var(--text-muted);">
-                    Đã trả lời: <strong style="color:var(--primary);">${Object.keys(st.tugOfWar.answers || {}).length}</strong>
+                    Đã trả lời: <strong id="admin-tug-answered-count" style="color:var(--primary);">${Object.keys(st.tugOfWar.answers || {}).length}</strong>
                   </div>
                   
                   <button id="btnCancelTugMatch" class="btn btn-danger btn-sm">
@@ -1890,6 +1890,11 @@ window.renderAdminDashboard = function(container, state, { onLogout }) {
     if (scBlue) {
       const teamObj = (newState.teams || []).find(t => t.id === newState.tugOfWar.teamB);
       scBlue.textContent = `${newState.tugOfWar.blueScore} lực — ${teamObj?.name || 'Team B'} ${teamObj?.emoji || '🔵'}`;
+    }
+
+    const ansCountEl = container.querySelector('#admin-tug-answered-count');
+    if (ansCountEl && newState.tugOfWar.answers) {
+      ansCountEl.textContent = Object.keys(newState.tugOfWar.answers).length;
     }
 
     // Quản lý đếm ngược tự động chuyển câu hỏi Stage 2 (Kéo co)
