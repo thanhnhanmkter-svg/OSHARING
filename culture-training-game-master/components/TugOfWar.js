@@ -317,12 +317,12 @@ window.renderTugOfWar = function(container, state, { playerId, isHost }) {
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <div style="text-align:left;">
               <div style="font-size:13px; font-weight:800; color:${teamAObj.color};">${teamAObj.emoji} ${teamAObj.name}</div>
-              <div style="font-size:24px; font-weight:900; color:var(--text-primary); font-variant-numeric:tabular-nums;">${tugState.redScore}</div>
+              <div id="score-red" style="font-size:24px; font-weight:900; color:var(--text-primary); font-variant-numeric:tabular-nums;">${tugState.redScore}</div>
             </div>
             <div style="font-size:12px; font-weight:800; color:var(--text-muted);">VS</div>
             <div style="text-align:right;">
               <div style="font-size:13px; font-weight:800; color:${teamBObj.color};">${teamBObj.name} ${teamBObj.emoji}</div>
-              <div style="font-size:24px; font-weight:900; color:var(--text-primary); font-variant-numeric:tabular-nums;">${tugState.blueScore}</div>
+              <div id="score-blue" style="font-size:24px; font-weight:900; color:var(--text-primary); font-variant-numeric:tabular-nums;">${tugState.blueScore}</div>
             </div>
           </div>
           <div style="position:relative; height:8px; background:rgba(15,23,42,0.06); border-radius:100px;">

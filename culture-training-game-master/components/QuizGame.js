@@ -160,13 +160,14 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
           // Guard để tránh gọi nhiều lần
           if (!window._quizAutoShowingAnswer) {
             window._quizAutoShowingAnswer = true;
-            window.setGameState({
+            window.setGameState(s => ({
+              ...s,
               quizState: {
-                ...quizState,
+                ...s.quizState,
                 showAnswer: true,
                 answerDisplayStartTime: Date.now()
               }
-            });
+            }));
             setTimeout(() => { window._quizAutoShowingAnswer = false; }, 3000);
           }
         }
@@ -185,7 +186,8 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
             window._quizAutoAdvancing = true;
             const nextIdx = qIndex + 1;
             if (nextIdx < allQs.length) {
-              window.setGameState({
+              window.setGameState(s => ({
+                ...s,
                 quizState: {
                   currentQuestionIndex: nextIdx,
                   isActive: true,
@@ -194,16 +196,17 @@ window.renderQuizGame = function(container, state, { playerId, isHost }) {
                   answerDisplayStartTime: null,
                   answers: {}
                 }
-              });
+              }));
             } else {
               // Hết câu hỏi - dừng game
-              window.setGameState({
+              window.setGameState(s => ({
+                ...s,
                 quizState: {
-                  ...quizState,
+                  ...s.quizState,
                   isActive: false,
                   answerDisplayStartTime: null
                 }
-              });
+              }));
             }
             setTimeout(() => { window._quizAutoAdvancing = false; }, 3000);
           }

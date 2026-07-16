@@ -10,15 +10,27 @@ function cleanupActiveComponent() {
     activeComponentCleanup();
     activeComponentCleanup = null;
   }
+  // Reset memoization caches để màn hình mới luôn render đúng
+  _lastHeaderKey = null;
+  _lastWaitingKey = null;
 }
 
-// Render Header của Website
+// Render Header của Website - có memoization để tránh chớp
+let _lastHeaderKey = null;
 function renderHeader(state, player, isAdmin) {
   if (!player && !isAdmin) {
-    headerContainer.innerHTML = '';
-    headerContainer.style.display = 'none';
+    if (headerContainer.innerHTML !== '') {
+      headerContainer.innerHTML = '';
+      headerContainer.style.display = 'none';
+    }
     return;
   }
+
+  // Tạo key nhận dạng trạng thái header — nếu giống lần trước thì bỏ qua re-render
+  const teamId = player?.team || null;
+  const headerKey = `admin:${isAdmin}-player:${player?.id}-team:${teamId}-tc:${state.teamConnectActive}`;
+  if (_lastHeaderKey === headerKey) return;
+  _lastHeaderKey = headerKey;
 
   headerContainer.style.display = 'block';
 
@@ -67,14 +79,21 @@ function renderHeader(state, player, isAdmin) {
 
   document.getElementById('headerLogoHome').addEventListener('click', (e) => {
     e.preventDefault();
+    _lastHeaderKey = null; // reset để header re-render sau khi navigate
     renderApp(window.getGameState());
   });
 }
 
 // Render màn hình sảnh chờ cho người chơi khi stage = 0
+let _lastWaitingKey = null;
 function renderWaitingLobby(container, player) {
+  // Guard: không re-render nếu nội dung không đổi
+  const key = `waiting-${player.id}`;
+  if (_lastWaitingKey === key && container.querySelector('.waiting-lobby-card')) return;
+  _lastWaitingKey = key;
+
   container.innerHTML = `
-    <div class="glass-card fade-in" style="max-width:480px; margin:40px auto; padding:48px 36px; text-align:center;">
+    <div class="waiting-lobby-card glass-card fade-in" style="max-width:480px; margin:40px auto; padding:48px 36px; text-align:center;">
 
       <!-- Mascot head bouncing -->
       <div style="position:relative; width:120px; height:120px; margin:0 auto 28px; display:flex; align-items:center; justify-content:center;">
@@ -119,6 +138,7 @@ function renderWaitingLobby(container, player) {
 
 // Hàm điều phối chính (App Router)
 let lastRenderedStageState = null; // Chuỗi định danh stage để xem có cần chạy hiệu ứng chuyển cảnh không
+let lastStageNumber = null; // Theo dõi stage trước để phát hiện chuyển stage → hiệu ứng tim
 
 window.renderApp = function (state) {
   try {
@@ -140,14 +160,30 @@ window.renderApp = function (state) {
     }
 
     // Định danh màn hình hiện tại. Thêm các thuộc tính chi tiết để re-render khi qua câu, bắt đầu, hiện đáp án.
-    const currentStageState = `stage:${state.stage}-tc:${state.teamConnectActive}-title:${state.showTitleScreen}-admin:${isAdminLoggedIn}-host:${isHostLoggedIn}-player:${!!player}-reset:${state.globalResetCounter || 0}-quiz:${JSON.stringify({ idx: state.quizState?.currentQuestionIndex, active: state.quizState?.isActive, showAns: state.quizState?.showAnswer, startTime: state.quizState?.startTime, answerDisplayStartTime: state.quizState?.answerDisplayStartTime })}-tug:${JSON.stringify({ idx: state.tugOfWar?.currentQuestionIndex, reviewIdx: state.tugOfWar?.reviewQuestionIndex, active: state.tugOfWar?.isActive, winner: state.tugOfWar?.winner, status: state.tugOfWar?.status, round: state.tugOfWar?.round, startTime: state.tugOfWar?.startTime })}-welcome:${JSON.stringify(state.welcomeSettings)}-players:${(state.players || []).map(p => p.id + ':' + p.team).join(',')}-sharingCardsVersion:${state.sharingCardsVersion || 0}-sharingLayoutVersion:${state.sharingLayoutVersion || 0}-quizQuestionsVersion:${state.quizQuestionsVersion || 0}-tugQuestionsVersion:${state.tugQuestionsVersion || 0}-wordCloudVersion:${state.wordCloudVersion || 0}`;
+    // playerCount thay cho full players list để tránh flicker khi người mới join (không cần re-render hết)
+    // playerTeam chỉ track team của player hiện tại (để re-render header khi được gán đội)
+    const myTeam = player ? player.team : null;
+    const currentStageState = `stage:${state.stage}-tc:${state.teamConnectActive}-title:${state.showTitleScreen}-admin:${isAdminLoggedIn}-host:${isHostLoggedIn}-player:${!!player}-myTeam:${myTeam}-reset:${state.globalResetCounter || 0}-quiz:${JSON.stringify({ idx: state.quizState?.currentQuestionIndex, active: state.quizState?.isActive, showAns: state.quizState?.showAnswer, startTime: state.quizState?.startTime, answerDisplayStartTime: state.quizState?.answerDisplayStartTime })}-tug:${JSON.stringify({ idx: state.tugOfWar?.currentQuestionIndex, reviewIdx: state.tugOfWar?.reviewQuestionIndex, active: state.tugOfWar?.isActive, winner: state.tugOfWar?.winner, status: state.tugOfWar?.status, round: state.tugOfWar?.round, startTime: state.tugOfWar?.startTime })}-welcome:${JSON.stringify(state.welcomeSettings)}-playerCount:${(state.players || []).length}-sharingCardsVersion:${state.sharingCardsVersion || 0}-sharingLayoutVersion:${state.sharingLayoutVersion || 0}-quizQuestionsVersion:${state.quizQuestionsVersion || 0}-tugQuestionsVersion:${state.tugQuestionsVersion || 0}-wordCloudVersion:${state.wordCloudVersion || 0}`;
 
     if (lastRenderedStageState === currentStageState) {
       return; // Không mount lại toàn bộ DOM để tránh giật lag, mất focus input và hỏng CSS transition.
     }
 
+    // Phát hiện chuyển Stage (1→2, 2→3, v.v.) → bắn hiệu ứng tim chuyển cảnh
+    const prevStage = lastStageNumber;
+    const newStage = state.stage;
+    const isStageChange = prevStage !== null && prevStage !== newStage && newStage >= 1;
+
     lastRenderedStageState = currentStageState;
-    executeRender(state, isAdminLoggedIn, isHostLoggedIn, currentPlayerId, player);
+    lastStageNumber = newStage;
+
+    if (isStageChange) {
+      triggerHeartTransition(() => {
+        executeRender(state, isAdminLoggedIn, isHostLoggedIn, currentPlayerId, player);
+      });
+    } else {
+      executeRender(state, isAdminLoggedIn, isHostLoggedIn, currentPlayerId, player);
+    }
   } catch (err) {
     console.error("Critical Render Error:", err);
     document.body.innerHTML = `<div style="padding: 20px; color: red; font-family: monospace; background: white; z-index: 9999; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
@@ -158,27 +194,24 @@ window.renderApp = function (state) {
   }
 };
 
+// Hiệu ứng tim chuyển cảnh — chỉ dùng khi chuyển Stage
 function triggerHeartTransition(callback) {
   const overlay = document.getElementById('transition-overlay');
+  if (!overlay) { callback(); return; }
   const heart = overlay.querySelector('.heart-transition');
+  if (!heart) { callback(); return; }
 
-  // Reset trạng thái
   overlay.style.display = 'flex';
   heart.className = 'heart-transition';
 
-  // Bắt đầu phình to
   setTimeout(() => {
     heart.classList.add('expanding');
-
-    // Khi tim to hết cỡ (che màn hình), render content mới
     setTimeout(() => {
       callback();
-
-      // Mờ dần tim rồi biến mất
       heart.classList.add('fading');
       setTimeout(() => {
         overlay.style.display = 'none';
-        heart.className = 'heart-transition'; // reset
+        heart.className = 'heart-transition';
       }, 400);
     }, 550);
   }, 50);
@@ -205,6 +238,123 @@ function renderTitleScreen(container, state, stageNum) {
     </div>
   `;
   if (window.lucide) window.lucide.createIcons();
+}
+
+// Màn hình chọn đội cho người chơi tham gia giữa chừng
+function renderMidGameJoin(container, state, player) {
+  const teams = state.teams || [];
+  const stageLabels = {
+    1: { label: 'Giai đoạn 1', sub: 'Điền Vào Chỗ Trống', icon: '📝' },
+    2: { label: 'Giai đoạn 2', sub: 'Kéo Co Đối Kháng', icon: '🤝' },
+    3: { label: 'Giai đoạn 3', sub: 'Chia Sẻ Thả Tim', icon: '❤️' },
+    4: { label: 'Giai đoạn 4', sub: 'Giải Mã Từ Khóa', icon: '🔐' },
+  };
+  const currentStage = stageLabels[state.stage] || { label: `Giai đoạn ${state.stage}`, sub: '', icon: '🎮' };
+
+  // Đếm thành viên mỗi đội
+  const teamCounts = {};
+  (state.players || []).forEach(p => {
+    if (p.team) teamCounts[p.team] = (teamCounts[p.team] || 0) + 1;
+  });
+
+  container.innerHTML = `
+    <div class="fade-in" style="min-height:calc(100vh - 80px); display:flex; align-items:center; justify-content:center; padding:24px;">
+      <div style="width:100%; max-width:480px;">
+
+        <!-- Header thông báo -->
+        <div style="text-align:center; margin-bottom:28px;">
+          <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.25); border-radius:100px; padding:8px 18px; margin-bottom:16px;">
+            <span style="font-size:14px;">⚡</span>
+            <span style="font-size:12px; font-weight:700; color:#d97706; text-transform:uppercase; letter-spacing:0.08em;">Game đang diễn ra</span>
+          </div>
+          <h2 style="font-size:24px; font-weight:900; color:var(--text-primary); letter-spacing:-0.03em; margin-bottom:6px;">
+            Chào mừng, ${player.name}! 👋
+          </h2>
+          <p style="font-size:14px; color:var(--text-secondary); line-height:1.6;">
+            Hiện đang ở <strong style="color:var(--primary);">${currentStage.icon} ${currentStage.label} · ${currentStage.sub}</strong>.<br>
+            Hãy chọn đội để bắt kịp đồng đội!
+          </p>
+        </div>
+
+        <!-- Danh sách đội -->
+        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:24px;">
+          ${teams.map(team => {
+            const count = teamCounts[team.id] || 0;
+            const members = (state.players || []).filter(p => p.team === team.id);
+            const memberNames = members.slice(0, 3).map(p => p.name).join(', ');
+            const extra = members.length > 3 ? ` +${members.length - 3} khác` : '';
+            return `
+              <button class="mid-join-team-btn" data-team-id="${team.id}"
+                style="width:100%; background:rgba(255,255,255,0.7); border:2px solid ${team.border};
+                       border-radius:16px; padding:20px 24px; cursor:pointer; text-align:left;
+                       display:flex; align-items:center; gap:16px; transition:all 0.2s ease;
+                       backdrop-filter:blur(8px); box-shadow:var(--shadow-xs);">
+                <!-- Team emoji badge -->
+                <div style="width:52px; height:52px; border-radius:14px; background:${team.colorLight};
+                            display:flex; align-items:center; justify-content:center; font-size:26px;
+                            flex-shrink:0; border:1px solid ${team.border};">
+                  ${team.emoji}
+                </div>
+                <!-- Team info -->
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:16px; font-weight:800; color:${team.color}; margin-bottom:4px;">
+                    ${team.name}
+                  </div>
+                  <div style="font-size:12px; color:var(--text-muted); font-weight:500;">
+                    ${count === 0
+                      ? 'Chưa có thành viên'
+                      : `${count} thành viên · ${memberNames}${extra}`}
+                  </div>
+                </div>
+                <!-- Arrow -->
+                <div style="color:${team.color}; opacity:0.5; flex-shrink:0;">
+                  <i data-lucide="chevron-right" style="width:20px; height:20px;"></i>
+                </div>
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- Chú thích -->
+        <p style="text-align:center; font-size:12px; color:var(--text-muted); line-height:1.6;">
+          Sau khi chọn đội, màn hình sẽ tự động cập nhật<br>theo tiến độ hiện tại của game.
+        </p>
+      </div>
+    </div>
+
+    <style>
+      .mid-join-team-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md) !important;
+      }
+      .mid-join-team-btn:active {
+        transform: translateY(0);
+      }
+    </style>
+  `;
+
+  if (window.lucide) window.lucide.createIcons();
+
+  // Xử lý click chọn đội
+  container.querySelectorAll('.mid-join-team-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const teamId = btn.getAttribute('data-team-id');
+
+      // Hiệu ứng loading
+      btn.style.opacity = '0.6';
+      btn.style.pointerEvents = 'none';
+      btn.querySelector('div[style*="font-size:16px"]').textContent = 'Đang tham gia...';
+
+      // Cập nhật team vào state — reset header key để badge đội mới hiện ngay
+      _lastHeaderKey = null;
+      window.setGameState(s => ({
+        ...s,
+        players: (s.players || []).map(p =>
+          p.id === player.id ? { ...p, team: teamId } : p
+        )
+      }));
+    });
+  });
 }
 
 function executeRender(state, isAdminLoggedIn, isHostLoggedIn, currentPlayerId, player) {
@@ -273,6 +423,12 @@ function executeRender(state, isAdminLoggedIn, isHostLoggedIn, currentPlayerId, 
   if (state.teamConnectActive) {
     const TCArgs = { isHost: isHostLoggedIn, playerId: player ? player.id : null };
     activeComponentCleanup = window.renderTeamConnect(rootContainer, state, TCArgs);
+    return;
+  }
+
+  // Người chơi tham gia giữa chừng (stage đang chạy nhưng chưa có đội) → màn hình chọn đội
+  if (!isHostLoggedIn && player && !player.team && state.stage >= 1) {
+    renderMidGameJoin(rootContainer, state, player);
     return;
   }
 
